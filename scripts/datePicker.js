@@ -1,353 +1,268 @@
-﻿
-function DatePicker(imgUrl) {
 
-    Element.prototype.append = function (elements) {
-        for (var a = 0; a < elements.length; a++) {
-            this.appendChild(elements[a]);
-        }
-    }
+	var enableEdit = false;
+var showMenu = true;
+var isFirst = true;
 
-    Element.prototype.setStyles = function (styleObj) {
-        for (var style in styleObj) {
-            this.style[style] = styleObj[style];
-        }
-    }
+$('#menu').click(function() {
+    showMenu = !showMenu;
+    $('#control-panel').css('display', (showMenu ? '' : 'none'));
+});
 
-    var div = document.createElement('div'),
-        monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-        weekDaysNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
-        yy = new Date().getFullYear(),
-        mm = new Date().getMonth(),
-        dd = new Date().getDate(),
-        currentYY = yy,
-        currentMM = mm,
-        currentDD = dd;
-    div.setStyles({
-        float: 'left', display: 'inline-block', fontFamily: 'Calibri',
-        color: '#eeeeee', boxSizing: 'border-box', border: '1px solid transparent'
+
+(function dialogs(){
+		
+	$('#greetings-dialog').dialog({
+		autoOpen: false,
+		modal:true,
+		width:800
+		
+	});
+
+	$('#bomb-dialog').dialog({
+		autoOpen: false,
+		modal:true,
+		width:635
+		
+	});
+	
+	$('#joke-dialog').dialog({
+		autoOpen: false,
+		modal:true,
+		width:435
+		
+	});
+}());
+
+
+$(document).ready(function() {
+
+    $('#generate-crossword').click(function() {
+        var x = parseInt($('#control-panel input[type="number"]').eq(0).val()),
+            y = parseInt($('#control-panel input[type="number"]').eq(2).val());
+
+        x = x > 30 ? 30 : (x < 5 ? 5 : x);
+        y = y > 10 ? 10 : (y < 3 ? 3 : y);
+        generateCrossword(x, y);
+
     });
 
-    function DatePicker() {
+	//Edit font-size
+    document.querySelector('#font-size').addEventListener('input', function() {
+        $('span').css('font-size', Number(this.value));
+    });
 
-        //this.yy = new Date().getFullYear();
-        //this.mm = new Date().getMonth();
-        //this.dd = new Date().getDate();
-        this.mainContainer = this.createMainContainer();
-        this.navigationRow = this.createNavigationRow();
-        this.dateOptionsBox = this.createDateOptionsBox();
+	//Spinning wheel animation;
+    $('img').click(function() {
+        var prevStyle = this.style['-webkit-transform'],
+            prevDeg = Number(prevStyle.substring(7, (prevStyle.lastIndexOf(')') - 3)));
+        this.removeAttribute('style');
 
-        this.mainContainer.append([this.navigationRow, this.dateOptionsBox]);
+        var deg = 500 + Math.round(Math.random() * 499),
+            easeOut = Math.round(deg / 100);
+        deg += prevDeg;
+        var css = '-webkit-transform: rotate(' + deg + 'deg); -webkit-transition: -webkit-transform ' + easeOut + 's ease-out;';
 
-        document.body.appendChild(this.mainContainer);
-    };
+        this.setAttribute('style', css);
+    });
 
-    DatePicker.prototype = {
+    $('#save-template').click(function() {
+        var rows = $('.row'),
+            arr = [];
+        for (var i = 0; i < rows.length; i++) {
+            arr[i] = [];
+            var letters = rows[i].querySelectorAll('span');
 
-        createMainContainer: function () {
-            var mainContainer = div.cloneNode(true);
-            mainContainer.setStyles({
-                position: 'absolute', width: '250px', textAlign: 'center',
-                display: 'none', border: '10px solid #333333',
-                backgroundColor: '#333333', fontSize: '13px',
-                padding: '0px'
-            });
-
-            return mainContainer;
-        },
-
-        createNavigationRow: function () {
-            var self = this,
-                navigationRow = div.cloneNode(true),
-                header = div.cloneNode(true),
-                arrowBtn = div.cloneNode(true);
-            arrowBtn.setStyles({ cursor: 'pointer', width: '15%' });
-
-            var leftArrow = arrowBtn.cloneNode(true),
-                rightArrow = arrowBtn.cloneNode(true);
-            leftArrow.innerHTML = '&#9664;';
-            rightArrow.innerHTML = '&#9654;';
-            leftArrow.onclick = function (ev) {
-                self.arrowEvent('backward');
-            };
-            rightArrow.onclick = function (ev) {
-                self.arrowEvent('forward');
-            };
-
-            header.innerHTML = monthNames[mm] + ' - ' + yy;
-            header.setStyles({ cursor: 'pointer', width: '70%' });
-            header.setAttribute('header-type', 'days');
-            header.onclick = function () {
-                self.headerEvent(header);
+            for (var j = 0; j < letters.length; j++) {
+                arr[i].push(letters[j].textContent);
             }
-            navigationRow.setStyles({ width: '100%', borderBottom: '1px solid #ffffff' });
-            navigationRow.append([leftArrow, header, rightArrow]);
-            return navigationRow;
-        },
+        };
 
-        createDateOptionsBox: function () {
-            var self = this,
-                dateOptionsBox = div.cloneNode(true);
+        var blob = new Blob([JSON.stringify(arr)], {
+                type: "application/json"
+            }),
+            url = URL.createObjectURL(blob),
+            aLink = document.getElementById('save-link');
 
-            dateOptionsBox.innerHTML = this.generateDaysOfMonth();
-            dateOptionsBox.id = 'date-options-box';
-            dateOptionsBox.onclick = function (ev) {
-                if (ev.target.getAttribute('cell-type') != 'active') {
-                    return;
-                }
-                self.dateOptionsEvent(ev.target, self);
-            }
-            return dateOptionsBox;
-        },
+        aLink.download = 'crossword.txt';
+        aLink.href = url;
+        aLink.click();
+    });
 
-        attachTo: function (element) {
-            var self = this,
-                relativeParent = this.findRelativeParent(element),
-                imgSize = element.offsetHeight - 5,
-                imgPosition = element.offsetWidth - (imgSize + 7),
-                imgStartX = imgPosition + element.offsetLeft + relativeParent.left,
-                imgEndX = imgStartX + imgSize,
-                imgStartY = element.offsetTop + relativeParent.top,
-                imgEndY = imgStartY + element.offsetHeight;
-            element.style.background = 'url(' + (imgUrl ? imgUrl : 'calendar.png') + ') no-repeat ' + imgPosition + 'px 0px';
-            element.style.backgroundSize = imgSize + 'px ' + imgSize + 'px';
+    document.getElementById('load-template').addEventListener('change', function(e) {
+        var file = e.target.files[0],
+            reader = new FileReader();
+        reader.onload = function(event) {
 
-            element.onfocus = function (ev) {
-                self.activeInput = this;
-            }
+            var contents = event.target.result,
+				arr = JSON.parse(contents);
+            generateCrossword(arr[0].length, arr.length, arr);
+        };
+        reader.readAsText(file);
+    }, false);
 
-            element.onclick = function (ev) {
-                if (ev.pageX > imgStartX && ev.pageX < (imgEndX + 3) &&
-                    ev.pageY > imgStartY && ev.pageY < imgEndY) {
-                    if (self.mainContainer.style.display == 'none') {
-                        var left = element.offsetLeft + relativeParent.left,
-                            top = (element.offsetTop + element.offsetHeight) + relativeParent.top;
-                        self.mainContainer.setStyles({
-                            display: 'inline-block',
-                            left: left + 'px',
-                            top: top + 'px'
-                        });
-                        var activeDate = self.activeInput.value.split('-').filter(Boolean);
-                        if (activeDate.length) {
-                            self.setInputDate(activeDate);
-                        }
-                        else {
-                            self.resetDate();
-                        }
-                        self.setCurrentDate();
-                        self.dateOptionsBox.innerHTML = self.generateDaysOfMonth();
-                        self.navigationRow.children[1].innerHTML = monthNames[mm] + ' - ' + yy;
-                    }
-                    else {
-                        self.mainContainer.style.display = 'none';
-                    }
-                }
-            }
+});
 
-            element.onmousemove = function (ev) {
-                if (ev.pageX > imgStartX && ev.pageX < (imgEndX + 3) &&
-                    ev.pageY > imgStartY && ev.pageY < imgEndY) {
-                    this.style.cursor = 'pointer';
-                }
-                else {
-                    this.style.cursor = 'initial';
-                }
-            }
-        },
+var showWheel = false,
+	showPass = false;
+$('#wheel').click(function(){
+	if($('#wheel-image').css('display') === 'block'){
+		if(confirm('Hide wheel?')){
+			$('#wheel-image').css('display','none');
+			showWheel = false;
+		}
+		return;
+	}
+	showPass = !showPass;
+	$('#pass-field').css('display', (showPass ? '' : 'none'));
+});
 
-        arrowEvent: function (timeDirection) {
-            var header = this.navigationRow.children[1],
-                headerType = header.getAttribute('header-type'),
-                direction = (timeDirection == 'backward') ? -1 : 1;
-            if (headerType == 'days') {
-                mm += direction;
-                if (mm > 11) {
-                    mm = 0;
-                    yy += 1;
-                }
-                else if (mm < 0) {
-                    mm = 11;
-                    yy -= 1;
-                }
-                this.dateOptionsBox.innerHTML = this.generateDaysOfMonth();
-                header.innerHTML = monthNames[mm] + ' - ' + yy;
-            }
-            else if (headerType == 'months') {
-                yy += direction;
-                header.innerHTML = yy;
-                this.dateOptionsBox.innerHTML = this.generateMonths();
-            }
-            else {
-                var years = header.innerHTML.split(' - '),
-                    startYear = (timeDirection == 'backward') ? Number(years[0]) - 15 : Number(years[1]);
-                header.innerHTML = startYear + ' - ' + (startYear + 15);
-                this.dateOptionsBox.innerHTML = this.generateYears(startYear, startYear + 15);
-            }
-        },
+$('#pass-field').on('keypress', function(ev){
+	if($('#wheel-image').css('display') === 'block'){
+		return;
+	}
+	var mins = new Date().getMinutes();
+	if (ev.keyCode === 13 && this.value === 'nebarai' + mins){
+		$('#wheel-image').css('display', '')
+	}else if(ev.keyCode === 13){
+		alert('Сори брат!');
+	}
+});
 
-        headerEvent: function (header) {
-            var headerType = header.getAttribute('header-type');
-            if (headerType == 'days') {
-                header.innerHTML = yy;
-                header.setAttribute('header-type', 'months');
-                this.dateOptionsBox.innerHTML = this.generateMonths();
-            }
-            else if (headerType == 'months') {
-                var startYear = (yy - 8);
-                header.innerHTML = startYear + ' - ' + (startYear + 15);
-                header.setAttribute('header-type', 'years');
-                this.dateOptionsBox.innerHTML = this.generateYears(startYear, (startYear + 15));
-            }
-            else {
-                header.innerHTML = yy;
-                header.setAttribute('header-type', 'months');
-                this.dateOptionsBox.innerHTML = this.generateMonths();
-            }
-        },
+function generateCrossword(x, y, arr) {
+    if ($('#crossword-wrapper')) {
+        $('#crossword-wrapper').remove();
+    }
+	enableEdit = false;
+    var $prevLetter = $();
 
-        dateOptionsEvent: function (element, mainContainer) {
-            var header = this.navigationRow.children[1],
-                headerType = header.getAttribute('header-type');
-            if (headerType == 'days') {
-                dd = Number(element.innerHTML);
-                this.activeInput.value = dd + '-' + (mm + 1) + '-' + yy;
-                this.mainContainer.style.display = 'none';
-            }
-            else if (headerType == 'months') {
-                mm = monthNames.indexOf(element.innerHTML);
-                header.innerHTML = monthNames[mm] + '-' + yy;
-                header.setAttribute('header-type', 'days');
-                this.dateOptionsBox.innerHTML = this.generateDaysOfMonth();
-            }
-            else {
-                yy = Number(element.innerHTML);
-                header.innerHTML = yy;
-                header.setAttribute('header-type', 'months');
-                this.dateOptionsBox.innerHTML = this.generateMonths();
-            }
-        },
+    $(document.body).append('<div id="crossword-wrapper"></div>');
 
-        generateDaysOfMonth: function () {
-            var daysOfMonth = new Date(yy, mm + 1, 0).getDate(),
-                firstDayOfMonth = new Date(yy, mm, 1).getDay() - 1,
-                lastDayOfMonth = new Date(yy, mm + 1, 0).getDay(),
-                previousMonthDays = new Date(yy, mm, 0).getDate() - firstDayOfMonth,
-                nextMonthStart = 1,
-                daysWrapper = div.cloneNode(true),
-                day = div.cloneNode(true);
+    $('#crossword-wrapper').append('<table id="crossword-puzzle"></table>');
 
-            day.setStyles({ width: (100 / 7) + '%', padding: '1.5%' });
+    $('table').css('height', window.innerHeight);
+    $('table').append(generateFirstRow(x));
 
-            for (var b = 0; b < 7; b++) {
-                var weekDay = day.cloneNode(true);
-                weekDay.innerHTML = weekDaysNames[b];
-                daysWrapper.appendChild(weekDay);
-            }
+    var indexer = 0,
+		letters = 'АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪьЮЯ';
+        
+    for (var a = 0; a < y; a++) {
+        var row = $('<tr class="row">');
 
-            for (var a = 0, len = firstDayOfMonth + daysOfMonth + (7 - lastDayOfMonth) ; a < len; a++) {
-                var singleDay = day.cloneNode(true);
-                if (a <= firstDayOfMonth || (a - firstDayOfMonth) > daysOfMonth) {
-                    singleDay.innerHTML = a <= firstDayOfMonth ? previousMonthDays++ : nextMonthStart++;
-                    singleDay.setStyles({ color: '#888888' });
-                }
-                else {
-                    singleDay.innerHTML = a - firstDayOfMonth;
-                    singleDay.setAttribute('cell-type', 'active');
-                    singleDay.setStyles({ cursor: 'pointer' });
-                    if (a - firstDayOfMonth == currentDD && mm == currentMM && currentYY == yy) {
-                        singleDay.setStyles({ border: '1px solid #8FBF20', color: '#8FBF20' });
-                    }
-                }
-                daysWrapper.appendChild(singleDay);
-            }
-            return daysWrapper.innerHTML;
-        },
-
-        generateMonths: function () {
-            var wrapper = div.cloneNode(true),
-                month = div.cloneNode(true);
-            month.setStyles({ width: '25%', padding: '2%', cursor: 'pointer' });
-            for (var a = 0; a < monthNames.length; a++) {
-                var newMonth = month.cloneNode(true);
-                newMonth.innerHTML = monthNames[a];
-                newMonth.setAttribute('cell-type', 'active');
-                if (a == currentMM && currentYY == yy) {
-                    newMonth.setStyles({ border: '1px solid #8FBF20', color: '#8FBF20' });
-                }
-                wrapper.appendChild(newMonth);
-            }
-            return wrapper.innerHTML;
-        },
-
-        generateYears: function (startYear, endYear) {
-            var wrapper = div.cloneNode(true),
-                year = div.cloneNode(true);
-            year.setStyles({ width: '25%', padding: '2%', cursor: 'pointer' });
-            for (var a = startYear; a <= endYear; a++) {
-                var singleYear = year.cloneNode(true);
-                singleYear.innerHTML = a;
-                singleYear.setAttribute('cell-type', 'active');
-                if (a == currentYY) {
-                    singleYear.setStyles({ border: '1px solid #8FBF20', color: '#8FBF20' });
-                }
-                wrapper.appendChild(singleYear);
-            }
-            return wrapper.innerHTML;
-        },
-
-        setInputDate: function (activeDate) {
-            yy = Number(activeDate[2]);
-            mm = Number(activeDate[1] - 1);
-            dd = Number(activeDate[0]);
-        },
-
-        resetDate: function () {
-            yy = new Date().getFullYear();
-            mm = new Date().getMonth();
-            dd = new Date().getDate();
-        },
-
-        setCurrentDate: function () {
-            currentYY = yy;
-            currentMM = mm;
-            currentDD = dd;
-        },
-
-        holdReleaseEffect: function (element) {
-            element.onmousedown = function () {
-                var currentLineHeight = Number(this.style.lineHeight.slice(0, -2));
-                this.style.lineHeight = (currentLineHeight + 2) + 'px';
-            }
-            element.onmouseup = function () {
-                var currentLineHeight = Number(this.style.lineHeight.slice(0, -2));
-                this.style.lineHeight = (currentLineHeight - 2) + 'px';
-            }
-        },
-
-        findRelativeParent: function (element) {
-            var parent = element.parentNode;
-
-            while (parent.style.position != 'relative' && parent.tagName != 'BODY') {
-                parent = parent.parentNode;
-            }
-            return {
-                top: parent.offsetTop,
-                left: parent.offsetLeft
+        for (var b = 0; b <= x; b++) {
+            if (b === 0) {
+                row.append('<td class="num-indexer">' + letters[indexer] + '</td>');
+                indexer++;
+            } else {
+                var letter = arr ? arr[a][b-1] : '';
+                row.append('<td><span>' + letter + '</span></td>');
             }
         }
+        $('table').append(row);
     }
+	
+    $('td').css('width', ($('table').width() / $('tr:nth-child(1) td').length) - 40);
+    $('.num-indexer').css('width', '2%');
+    
+	$('table span:not(.speacial-span)').css('font-size', Number($('#font-size').val()));
+	
+	$('td').click(function(ev) {
+        if (enableEdit || this.className.indexOf('indexer') != -1) {
+            return;
+        }
 
-    return new DatePicker();
-};
+        if (this.className === 'selected-letter') {
+            if (isFirst && this.textContent != '*' && this.textContent != '!') {
+				$('#greetings-dialog').dialog('open');
+            }
+            isFirst = false;
+			
+			if(this.textContent == '*'){
+				shakeScreen();
+				$('#bomb-dialog').dialog('open');
+				this.innerHTML = '<span>&#128163;</span>';
+				this.style.color = 'red';
+				this.style.fontSize = '46px';
+			}
+			
+			if(this.textContent == '!'){
+				$('#joke-dialog').dialog('open');
+				this.innerHTML = '<span>&#9786;</span>';
+				this.style.color = 'green';
+				this.style.fontSize = '60px';
+			}
+		
+            $(this).find('span').animate({
+                'opacity': 1
+            }, 1000);
+            $(this).addClass('revealed-letter');
+			
+            $(this).removeClass('selected-letter');
+            $prevLetter = $();
+
+            return;
+        } else if ($prevLetter.length !== 0) {
+            $prevLetter.removeClass('selected-letter');
+        }
+
+        $(this).addClass('selected-letter');
+        $prevLetter = $(this);
+    });
 
 
+    $('#edit-crossword').click(function() {
+        if (!enableEdit) {
+            $('td:not(.indexer):not(.num-indexer)').attr('class', '');
+            $('table span').attr('class', 'edit-letter');
+            $('.edit-letter').attr('contenteditable', 'true');
+        }
+        enableEdit = true;
+        $('#clear-crossword').attr('disabled', false);
+    });
 
+    $('#clear-crossword').click(function() {
+        $('table span').html('');
+    });
+	
+    $('#start-game').click(function() {
+        enableEdit = false;
+        $('table span').attr('class', '');
+        $('table span').attr('contenteditable', 'false');
+        $('#clear-crossword').attr('disabled', true);
+    });
 
-var datePicker = new DatePicker();
-
-var inputs = document.querySelectorAll('input');
-for (var a = 0; a < inputs.length; a++) {
-    inputs[a].readOnly = 'true';
-    datePicker.attachTo(inputs[a]);
+    $('.disabled').removeAttr('disabled');
+    $('#clear-crossword').attr('disabled', true);
+    setHeights();
 }
+
+function shakeScreen(){
+	counter = 0;
+	document.body.className = 'shake shake-hard';
+	var interval = setInterval(function shake(){
+		if(counter === 1){
+			document.body.className = '';
+			clearInterval(interval);
+			return;
+		}
+		document.body.className = 'shake';
+		counter++;
+	},1200);
+	
+}
+
+function generateFirstRow(len) {
+    var result = '<td class="indexer"></td>';
+    for (var i = 1; i <= len; i++) {
+        result += '<td class="indexer">' + i + '</td>';
+    }
+    return '<tr>' + result + '</tr>';
+}
+
+function setHeights() {
+    var height = $('td').height();
+    $('table span').css('height', height);
+}
+
+
 
 
