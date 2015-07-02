@@ -1,5 +1,5 @@
 
-	var enableEdit = false;
+var enableEdit = false;
 var showMenu = true;
 var isFirst = true;
 
@@ -31,6 +31,17 @@ $('#menu').click(function() {
 		width:435
 		
 	});
+	
+	$('#timer-dialog').dialog({
+		autoOpen: false,
+		modal:true,
+		width:735,
+		height:500,
+		close: function(ev, ui){
+			console.log(this)
+		}
+	});
+	
 }());
 
 
@@ -159,6 +170,8 @@ function generateCrossword(x, y, arr) {
         }
         $('table').append(row);
     }
+	var rowHeight = $('tr').eq(1).css('height');
+	console.log(rowHeight);
 	
     $('td').css('width', ($('table').width() / $('tr:nth-child(1) td').length) - 40);
     $('.num-indexer').css('width', '2%');
@@ -181,14 +194,16 @@ function generateCrossword(x, y, arr) {
 				$('#bomb-dialog').dialog('open');
 				this.innerHTML = '<span>&#128163;</span>';
 				this.style.color = 'red';
-				this.style.fontSize = '46px';
+				this.style.fontSize = '70px';
+				this.style.height = rowHeight;
 			}
 			
 			if(this.textContent == '!'){
 				$('#joke-dialog').dialog('open');
 				this.innerHTML = '<span>&#9786;</span>';
 				this.style.color = 'green';
-				this.style.fontSize = '60px';
+				this.style.fontSize = '79px';
+				this.style.height = rowHeight;
 			}
 		
             $(this).find('span').animate({
@@ -207,7 +222,6 @@ function generateCrossword(x, y, arr) {
         $(this).addClass('selected-letter');
         $prevLetter = $(this);
     });
-
 
     $('#edit-crossword').click(function() {
         if (!enableEdit) {
@@ -249,6 +263,27 @@ function shakeScreen(){
 	},1200);
 	
 }
+
+$(document.body).keydown(function(ev){
+	if(ev.ctrlKey && ev.keyCode === 81){
+		activateTimer();
+	}
+});
+
+function activateTimer(){
+	var start = 10,
+		text = $('#timer-dialog p');
+	text.html('10.0');
+	$('#timer-dialog').dialog('open');
+	var interval = setInterval(function(){
+		start-= 0.1;
+		text.html(start.toFixed(1));
+		if(start <= 0){
+			clearInterval(interval);
+			text.html('Sedi si...')
+		}
+	}, 100)
+};
 
 function generateFirstRow(len) {
     var result = '<td class="indexer"></td>';
